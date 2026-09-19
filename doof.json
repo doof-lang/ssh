@@ -1,0 +1,15 @@
+{
+  "name": "std/ssh",
+  "version": "0.1.0",
+  "license": "ISC",
+  "build": {
+    "native": {
+      "sourceFiles": ["./native_ssh.cpp"],
+      "extraCopyPaths": ["./native_ssh.hpp"],
+      "macos": { "pkgConfigPackages": ["libssh2"] },
+      "linux": { "pkgConfigPackages": ["libssh2"] },
+      "windows": { "linkLibraries": ["libssh2", "ws2_32"] }
+    }
+  },
+  "dependencies": {}
+}
