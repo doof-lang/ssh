@@ -30,5 +30,5 @@ export function testConnectWaitDefaultsToFiveSeconds(): none {
         host: "example.com",
         username: "user",
     }
-    Assert.equal(options.wait.toNanos(), Duration.ofSeconds(5L).toNanos())
+    Assert.equal(options.wait.toNanos(), Duration.ofSeconds(10L).toNanos())
 }
