@@ -5,13 +5,13 @@ A blocking, libssh2-backed SSH client. Its native operations are `isolated`, so 
 ```doof
 import { connect, SshConnectOptions } from "std/ssh"
 
-client := try! connect(SshConnectOptions {
+client := connect(SshConnectOptions {
     host: "server.example",
     username: "deploy",
     privateKeyPath: "/Users/me/.ssh/id_ed25519",
     knownHostsPath: "/Users/me/.ssh/known_hosts",
-})
-result := try! client.run("uptime")
+})!
+result := client.run("uptime")!
 println(result.stdout)
 ```
 
@@ -22,13 +22,13 @@ The client requires host-key verification: provide a known-hosts file and/or a S
 ```doof
 import { Duration } from "std/time"
 
-client := try! connect(SshConnectOptions {
+client := connect(SshConnectOptions {
     host: "server.example",
     username: "deploy",
     privateKeyPath: "/Users/me/.ssh/id_ed25519",
     knownHostsPath: "/Users/me/.ssh/known_hosts",
     wait: Duration.ofSeconds(10L),
-})
+})!
 ```
 
 It supports password or private-key authentication and SFTP. Agent authentication, forwarding, and interactive channels are intentionally future additions.
@@ -38,11 +38,11 @@ It supports password or private-key authentication and SFTP. Agent authenticatio
 Open SFTP over the already authenticated, host-verified connection. `writeFile` creates or replaces a file; `readFile` is deliberately bounded (16 MiB by default), so callers must opt in to larger in-memory downloads. Directory operations are non-recursive.
 
 ```doof
-sftp := try! client.sftp()
-try! sftp.writeFile("releases/app.bin", bytes)
-downloaded := try! sftp.readFile("releases/app.bin")
-names := try! sftp.listDirectory("releases")
-try! sftp.rename("releases/app.bin", "releases/app-current.bin")
+sftp := client.sftp()!
+sftp.writeFile("releases/app.bin", bytes)!
+downloaded := sftp.readFile("releases/app.bin")!
+names := sftp.listDirectory("releases")!
+sftp.rename("releases/app.bin", "releases/app-current.bin")!
 sftp.close()
 ```
 
