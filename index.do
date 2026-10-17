@@ -63,7 +63,7 @@ import class NativeSshClient from "./native_ssh.hpp" as doof_ssh::NativeSshClien
 }
 
 export class SshClient {
-    readonly native: NativeSshClient
+    native: NativeSshClient
 
     // Blocking. This and the native bridge are isolated, so it is suitable for
     // actor-dispatched or async work; it should not run on a UI thread.
