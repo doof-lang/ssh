@@ -222,6 +222,8 @@ doof::Result<std::shared_ptr<NativeSshClient>, std::string> NativeSshClient::con
     const std::optional<std::string>& knownHostsPath, const std::optional<std::string>& hostKeySha256,
     int64_t waitNanos, int32_t timeoutMs
 ) {
+    // Network I/O: let other actors use this CPU slot while blocked.
+    doof::CpuTokenRelease release;
     if (host.empty() || username.empty() || port < 1 || port > 65535) return { doof::Failure<std::string> { "invalid SSH host, username, or port" } };
     ensure_libssh2();
 #if defined(_WIN32)
@@ -308,6 +310,7 @@ doof::Result<std::shared_ptr<NativeSshClient>, std::string> NativeSshClient::con
 }
 
 doof::Result<int32_t, std::string> NativeSshClient::run(const std::string& command, int32_t timeoutMs) {
+    doof::CpuTokenRelease release;
     if (!impl_->session) return { doof::Failure<std::string> { "SSH client is closed" } };
     impl_->out.clear(); impl_->err.clear();
     libssh2_session_set_timeout(impl_->session, timeoutMs > 0 ? timeoutMs : 30000);
@@ -324,6 +327,7 @@ doof::Result<int32_t, std::string> NativeSshClient::run(const std::string& comma
 }
 
 doof::Result<void, std::string> NativeSshClient::openSftp() {
+    doof::CpuTokenRelease release;
     if (!impl_->session) return { doof::Failure<std::string> { "SSH client is closed" } };
     if (impl_->sftp) return { doof::Success<void> { } };
     impl_->sftp = libssh2_sftp_init(impl_->session);
@@ -332,6 +336,7 @@ doof::Result<void, std::string> NativeSshClient::openSftp() {
 }
 
 doof::Result<NativeSshClient::Bytes, std::string> NativeSshClient::readSftpFile(const std::string& path, int64_t maximumBytes) {
+    doof::CpuTokenRelease release;
     if (!impl_->sftp) return { doof::Failure<std::string> { "SFTP client is closed" } };
     if (path.empty() || path.find('\0') != std::string::npos || maximumBytes < 0) return { doof::Failure<std::string> { "invalid SFTP path or maximumBytes" } };
     LIBSSH2_SFTP_ATTRIBUTES attributes {};
@@ -362,6 +367,7 @@ doof::Result<NativeSshClient::Bytes, std::string> NativeSshClient::readSftpFile(
 }
 
 doof::Result<void, std::string> NativeSshClient::writeSftpFile(const std::string& path, const Bytes& data) {
+    doof::CpuTokenRelease release;
     if (!impl_->sftp) return { doof::Failure<std::string> { "SFTP client is closed" } };
     if (path.empty() || path.find('\0') != std::string::npos) return { doof::Failure<std::string> { "invalid SFTP path" } };
     LIBSSH2_SFTP_HANDLE* file = libssh2_sftp_open(impl_->sftp, path.c_str(), LIBSSH2_FXF_WRITE | LIBSSH2_FXF_CREAT | LIBSSH2_FXF_TRUNC,
@@ -378,6 +384,7 @@ doof::Result<void, std::string> NativeSshClient::writeSftpFile(const std::string
 }
 
 doof::Result<NativeSshClient::Strings, std::string> NativeSshClient::listSftpDirectory(const std::string& path) {
+    doof::CpuTokenRelease release;
     if (!impl_->sftp) return { doof::Failure<std::string> { "SFTP client is closed" } };
     if (path.empty() || path.find('\0') != std::string::npos) return { doof::Failure<std::string> { "invalid SFTP path" } };
     LIBSSH2_SFTP_HANDLE* directory = libssh2_sftp_opendir(impl_->sftp, path.c_str());
@@ -401,6 +408,7 @@ doof::Result<NativeSshClient::Strings, std::string> NativeSshClient::listSftpDir
 }
 
 doof::Result<void, std::string> NativeSshClient::makeSftpDirectory(const std::string& path) {
+    doof::CpuTokenRelease release;
     if (!impl_->sftp) return { doof::Failure<std::string> { "SFTP client is closed" } };
     if (path.empty() || path.find('\0') != std::string::npos) return { doof::Failure<std::string> { "invalid SFTP path" } };
     if (libssh2_sftp_mkdir(impl_->sftp, path.c_str(), LIBSSH2_SFTP_S_IRWXU | LIBSSH2_SFTP_S_IRGRP | LIBSSH2_SFTP_S_IXGRP | LIBSSH2_SFTP_S_IROTH | LIBSSH2_SFTP_S_IXOTH) != 0) return { doof::Failure<std::string> { sftp_error(impl_->sftp, "could not create SFTP directory") } };
@@ -408,18 +416,21 @@ doof::Result<void, std::string> NativeSshClient::makeSftpDirectory(const std::st
 }
 
 doof::Result<void, std::string> NativeSshClient::removeSftpFile(const std::string& path) {
+    doof::CpuTokenRelease release;
     if (!impl_->sftp) return { doof::Failure<std::string> { "SFTP client is closed" } };
     if (libssh2_sftp_unlink(impl_->sftp, path.c_str()) != 0) return { doof::Failure<std::string> { sftp_error(impl_->sftp, "could not remove SFTP file") } };
     return { doof::Success<void> {} };
 }
 
 doof::Result<void, std::string> NativeSshClient::removeSftpDirectory(const std::string& path) {
+    doof::CpuTokenRelease release;
     if (!impl_->sftp) return { doof::Failure<std::string> { "SFTP client is closed" } };
     if (libssh2_sftp_rmdir(impl_->sftp, path.c_str()) != 0) return { doof::Failure<std::string> { sftp_error(impl_->sftp, "could not remove SFTP directory") } };
     return { doof::Success<void> {} };
 }
 
 doof::Result<void, std::string> NativeSshClient::renameSftpPath(const std::string& source, const std::string& destination, bool overwrite) {
+    doof::CpuTokenRelease release;
     if (!impl_->sftp) return { doof::Failure<std::string> { "SFTP client is closed" } };
     const long flags = overwrite ? LIBSSH2_SFTP_RENAME_OVERWRITE : 0;
     if (libssh2_sftp_rename_ex(impl_->sftp, source.c_str(), static_cast<unsigned int>(source.size()), destination.c_str(), static_cast<unsigned int>(destination.size()), flags) != 0) return { doof::Failure<std::string> { sftp_error(impl_->sftp, "could not rename SFTP path") } };
